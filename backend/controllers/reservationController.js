@@ -2,7 +2,6 @@ const Reservation = require('../models/Reservation');
 const BookingLog = require('../models/BookingLog');
 const { allocateTable } = require('../services/allocationService');
 const { promoteFromWaitlist } = require('../services/waitlistService');
-const emailService = require('../services/emailService');
 
 // @desc    Create reservation (triggers smart allocation)
 // @route   POST /api/reservations
@@ -60,14 +59,6 @@ const createReservation = async (req, res, next) => {
       });
     }
 
-    // Send confirmation email
-    if (result.reservation) {
-      try {
-        await emailService.sendReservationConfirmedEmail(result.reservation);
-      } catch (emailError) {
-        console.error('Failed to send confirmation email:', emailError);
-      }
-    }
 
     res.status(201).json({
       success: true,
@@ -222,17 +213,6 @@ const cancelReservation = async (req, res, next) => {
       });
     }
 
-    // Send cancellation email
-    try {
-      const populatedReservation = await Reservation.findById(reservation._id)
-        .populate('user', 'name email')
-        .populate('restaurant', 'name');
-      if (populatedReservation && populatedReservation.user) {
-        await emailService.sendReservationCancelledEmail(populatedReservation);
-      }
-    } catch (emailError) {
-      console.error('Failed to send reservation cancellation email:', emailError);
-    }
 
     res.json({
       success: true,
