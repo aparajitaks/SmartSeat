@@ -83,7 +83,6 @@ reservationSchema.index({ table: 1, date: 1, 'timeSlot.start': 1, 'timeSlot.end'
 reservationSchema.index({ user: 1, status: 1 });
 reservationSchema.index({ branch: 1, date: 1, status: 1 });
 reservationSchema.index({ restaurant: 1, date: 1 });
-reservationSchema.index({ reservationId: 1 });
 reservationSchema.index({ status: 1 });
 
 // Soft delete - exclude deleted records by default

@@ -78,12 +78,20 @@ app.use('/api/waitlist', require('./routes/waitlistRoutes'));
 app.use('/api/analytics', require('./routes/analyticsRoutes'));
 app.use('/api/reviews', require('./routes/reviewRoutes'));
 
+// Root route (Render health probes)
+app.get('/', (req, res) => {
+  res.json({
+    success: true,
+    message: 'SmartSeat API is running',
+  });
+});
+
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({
     success: true,
     message: 'SmartSeat API is running',
-    environment: process.env.NODE_ENV,
+    environment: process.env.NODE_ENV || 'development',
     timestamp: new Date().toISOString(),
   });
 });
@@ -94,9 +102,11 @@ app.use(errorHandler);
 // Start server
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
+  const env = process.env.NODE_ENV || 'development';
+  const baseUrl = process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`;
   console.log(`\n🪑 SmartSeat API running on port ${PORT}`);
-  console.log(`   Environment: ${process.env.NODE_ENV}`);
-  console.log(`   Health check: http://localhost:${PORT}/api/health\n`);
+  console.log(`   Environment: ${env}`);
+  console.log(`   Health check: ${baseUrl}/api/health\n`);
 });
 
 // Handle unhandled promise rejections
