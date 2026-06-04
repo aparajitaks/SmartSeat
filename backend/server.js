@@ -16,7 +16,6 @@ connectDB();
 // Allowed CORS origins
 const allowedOrigins = [
   'http://localhost:5173',
-  'https://smart-seat-silk.vercel.app',
 ];
 if (process.env.CLIENT_URL) {
   const clientUrls = process.env.CLIENT_URL.split(',').map((url) => url.trim());
@@ -29,7 +28,11 @@ if (process.env.CLIENT_URL) {
 
 const corsOptions = {
   origin: function (origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
+    if (
+      !origin ||
+      allowedOrigins.includes(origin) ||
+      origin.endsWith('.vercel.app')
+    ) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
