@@ -13,14 +13,40 @@ dotenv.config();
 // Connect to database
 connectDB();
 
+// Allowed CORS origins
+const allowedOrigins = [
+  'http://localhost:5173',
+  'https://smart-seat-silk.vercel.app',
+];
+if (process.env.CLIENT_URL) {
+  const clientUrls = process.env.CLIENT_URL.split(',').map((url) => url.trim());
+  clientUrls.forEach((url) => {
+    if (!allowedOrigins.includes(url)) {
+      allowedOrigins.push(url);
+    }
+  });
+}
+
+const corsOptions = {
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+};
+
 const app = express();
 const server = http.createServer(app);
 
 // Socket.io setup
 const io = new Server(server, {
   cors: {
-    origin: process.env.CLIENT_URL || 'http://localhost:5173',
+    origin: corsOptions.origin,
     methods: ['GET', 'POST'],
+    credentials: true,
   },
 });
 
@@ -53,10 +79,7 @@ io.on('connection', (socket) => {
 });
 
 // Middleware
-app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:5173',
-  credentials: true,
-}));
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
