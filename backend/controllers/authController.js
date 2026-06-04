@@ -1,10 +1,17 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const RefreshToken = require('../models/RefreshToken');
 
-// Generate JWT token
-const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_EXPIRE || '7d',
+// Helpers to generate tokens
+const generateAccessToken = (id) => {
+  return jwt.sign({ id }, process.env.JWT_ACCESS_SECRET, {
+    expiresIn: '15m',
+  });
+};
+
+const generateRefreshToken = (id) => {
+  return jwt.sign({ id }, process.env.JWT_REFRESH_SECRET, {
+    expiresIn: '7d',
   });
 };
 
@@ -32,7 +39,15 @@ const register = async (req, res, next) => {
       role: role || 'customer',
     });
 
-    const token = generateToken(user._id);
+    const accessToken = generateAccessToken(user._id);
+    const refreshToken = generateRefreshToken(user._id);
+
+    // Save refresh token to database
+    await RefreshToken.create({
+      userId: user._id,
+      refreshToken,
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+    });
 
     res.status(201).json({
       success: true,
@@ -45,7 +60,9 @@ const register = async (req, res, next) => {
           phone: user.phone,
           role: user.role,
         },
-        token,
+        token: accessToken,
+        accessToken,
+        refreshToken,
       },
     });
   } catch (error) {
@@ -93,7 +110,18 @@ const login = async (req, res, next) => {
       });
     }
 
-    const token = generateToken(user._id);
+    const accessToken = generateAccessToken(user._id);
+    const refreshToken = generateRefreshToken(user._id);
+
+    // Delete any old refresh tokens for this user
+    await RefreshToken.deleteMany({ userId: user._id });
+
+    // Save new refresh token to database
+    await RefreshToken.create({
+      userId: user._id,
+      refreshToken,
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+    });
 
     res.json({
       success: true,
@@ -107,7 +135,9 @@ const login = async (req, res, next) => {
           role: user.role,
           avatar: user.avatar,
         },
-        token,
+        token: accessToken,
+        accessToken,
+        refreshToken,
       },
     });
   } catch (error) {
@@ -156,4 +186,87 @@ const updateProfile = async (req, res, next) => {
   }
 };
 
-module.exports = { register, login, getMe, updateProfile };
+// @desc    Refresh access token
+// @route   POST /api/auth/refresh
+// @access  Public
+const refresh = async (req, res, next) => {
+  try {
+    const { refreshToken } = req.body;
+
+    if (!refreshToken) {
+      return res.status(400).json({
+        success: false,
+        message: 'Refresh token is required',
+      });
+    }
+
+    // Verify refresh token signature
+    let decoded;
+    try {
+      decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+    } catch (err) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid or expired refresh token',
+      });
+    }
+
+    // Check if it exists in DB
+    const tokenDoc = await RefreshToken.findOne({ refreshToken });
+    if (!tokenDoc) {
+      return res.status(401).json({
+        success: false,
+        message: 'Refresh token not found or revoked',
+      });
+    }
+
+    // Check expiration
+    if (new Date() > tokenDoc.expiresAt) {
+      await RefreshToken.deleteOne({ _id: tokenDoc._id });
+      return res.status(401).json({
+        success: false,
+        message: 'Refresh token has expired',
+      });
+    }
+
+    // Generate new Access Token
+    const accessToken = generateAccessToken(decoded.id);
+
+    res.json({
+      success: true,
+      data: {
+        token: accessToken,
+        accessToken,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Logout user
+// @route   POST /api/auth/logout
+// @access  Public
+const logout = async (req, res, next) => {
+  try {
+    const { refreshToken } = req.body;
+
+    if (!refreshToken) {
+      return res.status(400).json({
+        success: false,
+        message: 'Refresh token is required',
+      });
+    }
+
+    await RefreshToken.deleteOne({ refreshToken });
+
+    res.json({
+      success: true,
+      message: 'Logged out successfully',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = { register, login, getMe, updateProfile, refresh, logout };

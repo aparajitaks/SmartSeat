@@ -64,6 +64,10 @@ if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'));
 }
 
+// Rate Limiting
+const { globalLimiter } = require('./middleware/rateLimiter');
+app.use('/api', globalLimiter);
+
 // API Routes
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/restaurants', require('./routes/restaurantRoutes'));

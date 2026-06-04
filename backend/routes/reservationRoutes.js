@@ -11,7 +11,9 @@ const {
   getBranchReservations,
 } = require('../controllers/reservationController');
 
-router.post('/', protect, createReservation);
+const { reservationLimiter } = require('../middleware/rateLimiter');
+
+router.post('/', protect, reservationLimiter, createReservation);
 router.get('/', protect, getMyReservations);
 router.get('/branch/:branchId', protect, authorize('restaurant_owner', 'admin'), getBranchReservations);
 router.get('/:id', protect, getReservation);

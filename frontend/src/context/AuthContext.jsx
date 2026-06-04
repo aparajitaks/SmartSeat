@@ -21,6 +21,7 @@ export const AuthProvider = ({ children }) => {
         setUser(JSON.parse(savedUser));
       } catch {
         localStorage.removeItem('smartseat_token');
+        localStorage.removeItem('smartseat_refresh_token');
         localStorage.removeItem('smartseat_user');
       }
     }
@@ -29,8 +30,9 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     const res = await authService.login({ email, password });
-    const { user: userData, token } = res.data.data;
+    const { user: userData, token, refreshToken } = res.data.data;
     localStorage.setItem('smartseat_token', token);
+    localStorage.setItem('smartseat_refresh_token', refreshToken);
     localStorage.setItem('smartseat_user', JSON.stringify(userData));
     setUser(userData);
     return userData;
@@ -38,15 +40,25 @@ export const AuthProvider = ({ children }) => {
 
   const register = async (data) => {
     const res = await authService.register(data);
-    const { user: userData, token } = res.data.data;
+    const { user: userData, token, refreshToken } = res.data.data;
     localStorage.setItem('smartseat_token', token);
+    localStorage.setItem('smartseat_refresh_token', refreshToken);
     localStorage.setItem('smartseat_user', JSON.stringify(userData));
     setUser(userData);
     return userData;
   };
 
-  const logout = () => {
+  const logout = async () => {
+    const rToken = localStorage.getItem('smartseat_refresh_token');
+    if (rToken) {
+      try {
+        await authService.logout({ refreshToken: rToken });
+      } catch (err) {
+        console.error('Logout request failed:', err);
+      }
+    }
     localStorage.removeItem('smartseat_token');
+    localStorage.removeItem('smartseat_refresh_token');
     localStorage.removeItem('smartseat_user');
     setUser(null);
   };

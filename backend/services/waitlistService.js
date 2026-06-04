@@ -4,6 +4,7 @@ const Reservation = require('../models/Reservation');
 const Table = require('../models/Table');
 const BookingLog = require('../models/BookingLog');
 const { generateReservationId } = require('../utils/generateId');
+const emailService = require('./emailService');
 
 /**
  * Add a customer to the waitlist
@@ -125,6 +126,18 @@ const promoteFromWaitlist = async (cancelledReservation, io) => {
     );
 
     await session.commitTransaction();
+
+    // Send waitlist promotion email
+    try {
+      const populatedReservation = await Reservation.findById(newReservation[0]._id)
+        .populate('user', 'name email')
+        .populate('restaurant', 'name');
+      if (populatedReservation && populatedReservation.user) {
+        await emailService.sendWaitlistPromotionEmail(populatedReservation);
+      }
+    } catch (emailError) {
+      console.error('Failed to send waitlist promotion email:', emailError);
+    }
 
     // Emit real-time notification via Socket.io
     if (io) {
